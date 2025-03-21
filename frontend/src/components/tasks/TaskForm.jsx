@@ -1,5 +1,5 @@
-import { useState, useEffect, useContext } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useContext } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -16,39 +16,40 @@ import {
   FormHelperText,
   Snackbar,
   IconButton,
-  InputAdornment
-} from '@mui/material';
+  InputAdornment,
+} from "@mui/material";
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
   Event as EventIcon,
   AccessTime as AccessTimeIcon,
-  Clear as ClearIcon
-} from '@mui/icons-material';
-import { TaskContext } from '../../context/TaskContext';
-import { DateTimePicker } from '@mui/x-date-pickers';
-import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import moment from 'moment';
+  Clear as ClearIcon,
+} from "@mui/icons-material";
+import { TaskContext } from "../../context/TaskContext";
+import { DateTimePicker } from "@mui/x-date-pickers";
+import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import moment from "moment";
 
 const TaskForm = () => {
-  const { createTask, updateTask, getTask, loading, error, clearError } = useContext(TaskContext);
+  const { createTask, updateTask, getTask, loading, error, clearError } =
+    useContext(TaskContext);
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = !!id;
 
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    deadline: moment().add(1, 'day'),
+    title: "",
+    description: "",
+    deadline: moment().add(1, "day"),
     estimatedDuration: 60,
     priority: 2,
-    status: 'pending'
+    status: "pending",
   });
-  
+
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Fetch task data if in edit mode
   useEffect(() => {
@@ -58,18 +59,18 @@ const TaskForm = () => {
         if (task) {
           setFormData({
             title: task.title,
-            description: task.description || '',
+            description: task.description || "",
             deadline: moment(task.deadline),
             estimatedDuration: task.estimatedDuration,
             priority: task.priority,
-            status: task.status
+            status: task.status,
           });
         }
       };
-      
+
       fetchTaskData();
     }
-    
+
     return () => clearError();
   }, [id, isEditMode, getTask, clearError]);
 
@@ -77,10 +78,10 @@ const TaskForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    
+
     // Clear validation error when user types
     if (formErrors[name]) {
-      setFormErrors({ ...formErrors, [name]: '' });
+      setFormErrors({ ...formErrors, [name]: "" });
     }
   };
 
@@ -88,30 +89,33 @@ const TaskForm = () => {
   const handleDateChange = (date) => {
     setFormData({ ...formData, deadline: date });
     if (formErrors.deadline) {
-      setFormErrors({ ...formErrors, deadline: '' });
+      setFormErrors({ ...formErrors, deadline: "" });
     }
   };
 
   // Validate form
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formData.title.trim()) {
-      errors.title = 'Title is required';
+      errors.title = "Title is required";
     }
-    
+
     if (!formData.deadline) {
-      errors.deadline = 'Deadline is required';
+      errors.deadline = "Deadline is required";
     } else if (!moment(formData.deadline).isValid()) {
-      errors.deadline = 'Invalid date';
+      errors.deadline = "Invalid date";
     }
-    
+
     if (!formData.estimatedDuration) {
-      errors.estimatedDuration = 'Estimated duration is required';
-    } else if (isNaN(formData.estimatedDuration) || formData.estimatedDuration <= 0) {
-      errors.estimatedDuration = 'Duration must be a positive number';
+      errors.estimatedDuration = "Estimated duration is required";
+    } else if (
+      isNaN(formData.estimatedDuration) ||
+      formData.estimatedDuration <= 0
+    ) {
+      errors.estimatedDuration = "Duration must be a positive number";
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -119,32 +123,32 @@ const TaskForm = () => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setSaving(true);
-    
+
     try {
       // Format data for API
       const taskData = {
         ...formData,
-        deadline: formData.deadline.toISOString()
+        deadline: formData.deadline.toISOString(),
       };
-      
+
       if (isEditMode) {
         await updateTask(id, taskData);
-        setSuccessMessage('Task updated successfully');
+        setSuccessMessage("Task updated successfully");
       } else {
         await createTask(taskData);
-        setSuccessMessage('Task created successfully');
+        setSuccessMessage("Task created successfully");
       }
-      
+
       // Navigate after a short delay to show success message
-      setTimeout(() => navigate('/tasks'), 1500);
+      setTimeout(() => navigate("/tasks"), 1500);
     } catch (err) {
-      console.error('Error saving task:', err);
+      console.error("Error saving task:", err);
     } finally {
       setSaving(false);
     }
@@ -160,19 +164,20 @@ const TaskForm = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterMoment}>
       <Box>
-        <Box sx={{ mb: 4, display: 'flex', alignItems: 'center' }}>
-          <IconButton 
-            onClick={() => navigate('/tasks')}
-            sx={{ mr: 2 }}
-          >
+        <Box sx={{ mb: 4, display: "flex", alignItems: "center" }}>
+          <IconButton onClick={() => navigate("/tasks")} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
-            {isEditMode ? 'Edit Task' : 'Create New Task'}
+            {isEditMode ? "Edit Task" : "Create New Task"}
           </Typography>
         </Box>
 
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
 
         <Paper elevation={3} sx={{ p: 4 }}>
           <form onSubmit={handleSubmit}>
@@ -190,7 +195,7 @@ const TaskForm = () => {
                   required
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -203,7 +208,7 @@ const TaskForm = () => {
                   disabled={loading || saving}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <DateTimePicker
                   label="Deadline"
@@ -222,14 +227,14 @@ const TaskForm = () => {
                           <InputAdornment position="start">
                             <EventIcon color="action" />
                           </InputAdornment>
-                        )
+                        ),
                       }}
                     />
                   )}
                   disabled={loading || saving}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -239,19 +244,22 @@ const TaskForm = () => {
                   value={formData.estimatedDuration}
                   onChange={handleChange}
                   error={!!formErrors.estimatedDuration}
-                  helperText={formErrors.estimatedDuration || `Approx. ${formatDuration(formData.estimatedDuration)}`}
+                  helperText={
+                    formErrors.estimatedDuration ||
+                    `Approx. ${formatDuration(formData.estimatedDuration)}`
+                  }
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
                         <AccessTimeIcon color="action" />
                       </InputAdornment>
-                    )
+                    ),
                   }}
                   disabled={loading || saving}
                   required
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth error={!!formErrors.priority}>
                   <InputLabel>Priority</InputLabel>
@@ -266,10 +274,12 @@ const TaskForm = () => {
                     <MenuItem value={2}>Medium</MenuItem>
                     <MenuItem value={3}>Low</MenuItem>
                   </Select>
-                  {formErrors.priority && <FormHelperText>{formErrors.priority}</FormHelperText>}
+                  {formErrors.priority && (
+                    <FormHelperText>{formErrors.priority}</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
-              
+
               {isEditMode && (
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth error={!!formErrors.status}>
@@ -285,16 +295,20 @@ const TaskForm = () => {
                       <MenuItem value="in-progress">In Progress</MenuItem>
                       <MenuItem value="completed">Completed</MenuItem>
                     </Select>
-                    {formErrors.status && <FormHelperText>{formErrors.status}</FormHelperText>}
+                    {formErrors.status && (
+                      <FormHelperText>{formErrors.status}</FormHelperText>
+                    )}
                   </FormControl>
                 </Grid>
               )}
-              
+
               <Grid item xs={12} sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                <Box
+                  sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}
+                >
                   <Button
                     variant="outlined"
-                    onClick={() => navigate('/tasks')}
+                    onClick={() => navigate("/tasks")}
                     disabled={saving}
                     startIcon={<ClearIcon />}
                   >
@@ -305,20 +319,26 @@ const TaskForm = () => {
                     variant="contained"
                     color="primary"
                     disabled={loading || saving}
-                    startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                    startIcon={
+                      saving ? <CircularProgress size={20} /> : <SaveIcon />
+                    }
                   >
-                    {saving ? 'Saving...' : isEditMode ? 'Update Task' : 'Create Task'}
+                    {saving
+                      ? "Saving..."
+                      : isEditMode
+                      ? "Update Task"
+                      : "Create Task"}
                   </Button>
                 </Box>
               </Grid>
             </Grid>
           </form>
         </Paper>
-        
+
         <Snackbar
           open={!!successMessage}
           autoHideDuration={3000}
-          onClose={() => setSuccessMessage('')}
+          onClose={() => setSuccessMessage("")}
           message={successMessage}
         />
       </Box>
@@ -326,4 +346,4 @@ const TaskForm = () => {
   );
 };
 
-export default TaskForm; 
+export default TaskForm;

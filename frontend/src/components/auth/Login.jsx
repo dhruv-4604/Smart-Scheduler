@@ -26,7 +26,7 @@ const Login = () => {
     onSubmit: async (values) => {
       const success = await login(values);
       if (success) {
-        navigate('/dashboard');
+        navigate('/');
       } else {
         setLoginError(error || 'Login failed. Please check your credentials.');
       }

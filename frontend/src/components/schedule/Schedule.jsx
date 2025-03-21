@@ -1,5 +1,5 @@
-import { useState, useEffect, useContext } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -20,8 +20,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
-} from '@mui/material';
+  MenuItem,
+} from "@mui/material";
 import {
   Event as EventIcon,
   Add as AddIcon,
@@ -31,99 +31,131 @@ import {
   Today as TodayIcon,
   Schedule as ScheduleIcon,
   MeetingRoom as MeetingRoomIcon,
-  Flag as FlagIcon
-} from '@mui/icons-material';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid/index.js';
-import timeGridPlugin from '@fullcalendar/timegrid/index.js';
-import interactionPlugin from '@fullcalendar/interaction/index.js';
-import { TaskContext } from '../../context/TaskContext';
-import moment from 'moment';
+  Flag as FlagIcon,
+  AccessTime as AccessTimeIcon,
+} from "@mui/icons-material";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid/index.js";
+import timeGridPlugin from "@fullcalendar/timegrid/index.js";
+import interactionPlugin from "@fullcalendar/interaction/index.js";
+import { TaskContext } from "../../context/TaskContext";
+import moment from "moment";
 
 const Schedule = () => {
-  const { tasks, scheduledTasks, loading, error, fetchTasks, scheduleTasks, fetchScheduledTasks } = useContext(TaskContext);
-  
-  const [calendarView, setCalendarView] = useState('timeGridWeek');
+  const {
+    tasks,
+    scheduledTasks,
+    loading,
+    error,
+    fetchTasks,
+    scheduleTasks,
+    fetchScheduledTasks,
+  } = useContext(TaskContext);
+
+  const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [openScheduleDialog, setOpenScheduleDialog] = useState(false);
   const [unscheduledTasks, setUnscheduledTasks] = useState([]);
-  const [selectedTask, setSelectedTask] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState('');
-  const [scheduleError, setScheduleError] = useState('');
+  const [selectedTask, setSelectedTask] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDuration, setSelectedDuration] = useState("");
+  const [scheduleError, setScheduleError] = useState("");
   const [scheduling, setScheduling] = useState(false);
   const [eventClickInfo, setEventClickInfo] = useState(null);
   const [openEventDialog, setOpenEventDialog] = useState(false);
 
-  // Fetch tasks and scheduled tasks
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchTasks();
-      await fetchScheduledTasks();
-    };
-    
-    loadData();
+  // Memoize the loadData function
+  const loadData = useCallback(async () => {
+    await fetchTasks();
+    await fetchScheduledTasks();
   }, [fetchTasks, fetchScheduledTasks]);
 
-  // Convert scheduled tasks to calendar events
+  // Fetch tasks and scheduled tasks only once on mount
   useEffect(() => {
-    if (scheduledTasks && scheduledTasks.length > 0) {
-      const calendarEvents = scheduledTasks.map(task => ({
-        id: task._id,
-        title: task.title,
-        start: task.scheduledTime,
-        end: moment(task.scheduledTime).add(task.estimatedDuration, 'minutes').toDate(),
-        allDay: false,
-        extendedProps: {
-          description: task.description,
-          priority: task.priority,
-          status: task.status,
-          duration: task.estimatedDuration
-        },
-        backgroundColor: getPriorityColor(task.priority),
-        borderColor: getPriorityColor(task.priority)
-      }));
-      
-      setEvents(calendarEvents);
-    } else {
-      setEvents([]);
+    loadData();
+  }, [loadData]);
+
+  // Convert scheduled tasks to calendar events
+  const calendarEvents = useMemo(() => {
+    if (!scheduledTasks || scheduledTasks.length === 0) {
+      return [];
     }
+
+    return scheduledTasks.map((task) => ({
+      id: task._id,
+      title: task.title,
+      start: task.scheduledTime,
+      end: moment(task.scheduledTime)
+        .add(task.estimatedDuration, "minutes")
+        .toDate(),
+      allDay: false,
+      extendedProps: {
+        description: task.description,
+        priority: task.priority,
+        status: task.status,
+        duration: task.estimatedDuration,
+      },
+      backgroundColor: getPriorityColor(task.priority),
+      borderColor: getPriorityColor(task.priority),
+    }));
   }, [scheduledTasks]);
 
-  // Filter unscheduled tasks
+  // Update events when calendarEvents changes
   useEffect(() => {
-    if (tasks && tasks.length > 0) {
-      const unscheduled = tasks.filter(task => 
-        !task.scheduledTime && task.status !== 'completed'
-      );
-      setUnscheduledTasks(unscheduled);
-    } else {
-      setUnscheduledTasks([]);
+    setEvents(calendarEvents);
+  }, [calendarEvents]);
+
+  // Filter unscheduled tasks
+  const filteredUnscheduledTasks = useMemo(() => {
+    if (!tasks || tasks.length === 0) {
+      return [];
     }
+
+    return tasks.filter(
+      (task) => !task.scheduledTime && task.status !== "completed"
+    );
   }, [tasks]);
+
+  // Update unscheduled tasks when filteredUnscheduledTasks changes
+  useEffect(() => {
+    setUnscheduledTasks(filteredUnscheduledTasks);
+  }, [filteredUnscheduledTasks]);
+
+  // Memoize the refresh handler
+  const handleRefresh = useCallback(() => {
+    loadData();
+  }, [loadData]);
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 1: return '#f44336'; // High - Red
-      case 2: return '#ff9800'; // Medium - Orange
-      case 3: return '#2196f3'; // Low - Blue
-      default: return '#9e9e9e'; // Default - Grey
+      case 1:
+        return "#f44336"; // High - Red
+      case 2:
+        return "#ff9800"; // Medium - Orange
+      case 3:
+        return "#2196f3"; // Low - Blue
+      default:
+        return "#9e9e9e"; // Default - Grey
     }
   };
 
   const getPriorityLabel = (priority) => {
     switch (priority) {
-      case 1: return 'High';
-      case 2: return 'Medium';
-      case 3: return 'Low';
-      default: return 'Unknown';
+      case 1:
+        return "High";
+      case 2:
+        return "Medium";
+      case 3:
+        return "Low";
+      default:
+        return "Unknown";
     }
   };
 
   const handleDateClick = (info) => {
     setSelectedDate(info.date);
-    setSelectedTime(moment(info.date).format('HH:mm'));
+    setSelectedTime(moment(info.date).format("HH:mm"));
     setOpenScheduleDialog(true);
   };
 
@@ -139,55 +171,59 @@ const Schedule = () => {
 
   const handleOpenScheduleDialog = () => {
     setSelectedDate(new Date());
-    setSelectedTime(moment().format('HH:mm'));
+    setSelectedTime(moment().format("HH:mm"));
     setOpenScheduleDialog(true);
   };
 
   const handleCloseScheduleDialog = () => {
     setSelectedDate(null);
-    setSelectedTask('');
-    setSelectedTime('');
-    setSelectedDuration('');
-    setScheduleError('');
+    setSelectedTask("");
+    setSelectedTime("");
+    setSelectedDuration("");
+    setScheduleError("");
     setOpenScheduleDialog(false);
   };
 
   const handleScheduleTask = async () => {
     if (!selectedTask) {
-      setScheduleError('Please select a task');
+      setScheduleError("Please select a task");
       return;
     }
 
     if (!selectedTime) {
-      setScheduleError('Please select a time');
+      setScheduleError("Please select a time");
       return;
     }
 
     setScheduling(true);
-    setScheduleError('');
-    
+    setScheduleError("");
+
     try {
-      const task = tasks.find(t => t._id === selectedTask);
-      const scheduledDateTime = moment(selectedDate).set({
-        hour: parseInt(selectedTime.split(':')[0]),
-        minute: parseInt(selectedTime.split(':')[1]),
-        second: 0
-      }).toDate();
-      
-      const scheduledTasks = [{
-        _id: task._id,
-        scheduledTime: scheduledDateTime
-      }];
-      
+      const task = tasks.find((t) => t._id === selectedTask);
+      const scheduledDateTime = moment(selectedDate)
+        .set({
+          hour: parseInt(selectedTime.split(":")[0]),
+          minute: parseInt(selectedTime.split(":")[1]),
+          second: 0,
+        })
+        .toDate();
+
+      const scheduledTasks = [
+        {
+          _id: task._id,
+          scheduledTime: scheduledDateTime,
+        },
+      ];
+
       await scheduleTasks(scheduledTasks);
       handleCloseScheduleDialog();
-      
+
       // Refresh data
       await fetchTasks();
       await fetchScheduledTasks();
     } catch (err) {
-      setScheduleError('Failed to schedule task');
-      console.error('Error scheduling task:', err);
+      setScheduleError("Failed to schedule task");
+      console.error("Error scheduling task:", err);
     } finally {
       setScheduling(false);
     }
@@ -196,26 +232,34 @@ const Schedule = () => {
   const formatDuration = (minutes) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
+    return hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ""}` : `${mins}m`;
   };
 
   return (
     <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          mb: 4,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <Typography variant="h4" component="h1" gutterBottom>
           Schedule
         </Typography>
         <Box>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={handleOpenScheduleDialog}
             startIcon={<ScheduleIcon />}
             sx={{ mr: 1 }}
           >
             Schedule Task
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             component={RouterLink}
             to="/tasks/new"
             startIcon={<AddIcon />}
@@ -225,13 +269,22 @@ const Schedule = () => {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={9}>
-          <Paper sx={{ p: 2, height: '70vh' }}>
+          <Paper sx={{ p: 2, height: "70vh" }}>
             {loading ? (
-              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+              <Box
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                height="100%"
+              >
                 <CircularProgress />
               </Box>
             ) : (
@@ -239,9 +292,9 @@ const Schedule = () => {
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView={calendarView}
                 headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,timeGridWeek,timeGridDay",
                 }}
                 editable={true}
                 selectable={true}
@@ -262,7 +315,11 @@ const Schedule = () => {
         </Grid>
         <Grid item xs={12} lg={3}>
           <Paper sx={{ p: 2, mb: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ display: "flex", alignItems: "center" }}
+            >
               <EventIcon sx={{ mr: 1 }} />
               Upcoming Tasks
             </Typography>
@@ -273,38 +330,70 @@ const Schedule = () => {
               </Box>
             ) : unscheduledTasks.length > 0 ? (
               <Box>
-                {unscheduledTasks.slice(0, 5).map(task => (
-                  <Box key={task._id} sx={{ mb: 2, p: 1, border: '1px solid #eee', borderRadius: 1 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                      <Typography variant="subtitle2" component={RouterLink} to={`/tasks/${task._id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
+                {unscheduledTasks.slice(0, 5).map((task) => (
+                  <Box
+                    key={task._id}
+                    sx={{
+                      mb: 2,
+                      p: 1,
+                      border: "1px solid #eee",
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="flex-start"
+                    >
+                      <Typography
+                        variant="subtitle2"
+                        component={RouterLink}
+                        to={`/tasks/${task._id}`}
+                        sx={{ textDecoration: "none", color: "inherit" }}
+                      >
                         {task.title}
                       </Typography>
-                      <Chip 
-                        label={getPriorityLabel(task.priority)} 
-                        size="small" 
-                        sx={{ 
+                      <Chip
+                        label={getPriorityLabel(task.priority)}
+                        size="small"
+                        sx={{
                           backgroundColor: getPriorityColor(task.priority),
-                          color: 'white',
-                          fontSize: '0.7rem'
+                          color: "white",
+                          fontSize: "0.7rem",
                         }}
                       />
                     </Box>
-                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
-                      <EventIcon fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                      {moment(task.deadline).format('MMM DD, YYYY')}
+                    <Typography
+                      variant="caption"
+                      display="block"
+                      color="text.secondary"
+                      sx={{ mt: 1 }}
+                    >
+                      <EventIcon
+                        fontSize="inherit"
+                        sx={{ verticalAlign: "middle", mr: 0.5 }}
+                      />
+                      {moment(task.deadline).format("MMM DD, YYYY")}
                     </Typography>
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      <AccessTimeIcon fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                    <Typography
+                      variant="caption"
+                      display="block"
+                      color="text.secondary"
+                    >
+                      <AccessTimeIcon
+                        fontSize="inherit"
+                        sx={{ verticalAlign: "middle", mr: 0.5 }}
+                      />
                       {formatDuration(task.estimatedDuration)}
                     </Typography>
                   </Box>
                 ))}
                 {unscheduledTasks.length > 5 && (
                   <Box textAlign="center" mt={1}>
-                    <Button 
-                      component={RouterLink} 
-                      to="/tasks" 
-                      size="small" 
+                    <Button
+                      component={RouterLink}
+                      to="/tasks"
+                      size="small"
                       endIcon={<ArrowForwardIcon />}
                     >
                       View all {unscheduledTasks.length} tasks
@@ -313,19 +402,21 @@ const Schedule = () => {
                 )}
               </Box>
             ) : (
-              <Typography variant="body2" color="text.secondary" align="center" p={2}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                p={2}
+              >
                 No unscheduled tasks
               </Typography>
             )}
           </Paper>
-          <Button 
-            fullWidth 
-            variant="outlined" 
+          <Button
+            fullWidth
+            variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={() => {
-              fetchTasks();
-              fetchScheduledTasks();
-            }}
+            onClick={handleRefresh}
           >
             Refresh
           </Button>
@@ -333,11 +424,20 @@ const Schedule = () => {
       </Grid>
 
       {/* Schedule Task Dialog */}
-      <Dialog open={openScheduleDialog} onClose={handleCloseScheduleDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openScheduleDialog}
+        onClose={handleCloseScheduleDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Schedule a Task</DialogTitle>
         <DialogContent>
-          {scheduleError && <Alert severity="error" sx={{ mb: 3 }}>{scheduleError}</Alert>}
-          
+          {scheduleError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {scheduleError}
+            </Alert>
+          )}
+
           <Box sx={{ mt: 1 }}>
             <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>Task</InputLabel>
@@ -347,13 +447,20 @@ const Schedule = () => {
                 label="Task"
                 disabled={scheduling}
               >
-                {unscheduledTasks.map(task => (
+                {unscheduledTasks.map((task) => (
                   <MenuItem key={task._id} value={task._id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                      <FlagIcon sx={{ color: getPriorityColor(task.priority), mr: 1 }} fontSize="small" />
-                      <Box sx={{ flexGrow: 1 }}>
-                        {task.title}
-                      </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        width: "100%",
+                      }}
+                    >
+                      <FlagIcon
+                        sx={{ color: getPriorityColor(task.priority), mr: 1 }}
+                        fontSize="small"
+                      />
+                      <Box sx={{ flexGrow: 1 }}>{task.title}</Box>
                       <Typography variant="caption" color="text.secondary">
                         {formatDuration(task.estimatedDuration)}
                       </Typography>
@@ -362,15 +469,21 @@ const Schedule = () => {
                 ))}
               </Select>
             </FormControl>
-            
+
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Date"
                   type="date"
-                  value={selectedDate ? moment(selectedDate).format('YYYY-MM-DD') : ''}
-                  onChange={(e) => setSelectedDate(moment(e.target.value).toDate())}
+                  value={
+                    selectedDate
+                      ? moment(selectedDate).format("YYYY-MM-DD")
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setSelectedDate(moment(e.target.value).toDate())
+                  }
                   InputLabelProps={{ shrink: true }}
                   disabled={scheduling}
                 />
@@ -393,39 +506,50 @@ const Schedule = () => {
           <Button onClick={handleCloseScheduleDialog} disabled={scheduling}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleScheduleTask} 
-            variant="contained" 
+          <Button
+            onClick={handleScheduleTask}
+            variant="contained"
             color="primary"
             disabled={scheduling || !selectedTask}
-            startIcon={scheduling ? <CircularProgress size={20} /> : <ScheduleIcon />}
+            startIcon={
+              scheduling ? <CircularProgress size={20} /> : <ScheduleIcon />
+            }
           >
-            {scheduling ? 'Scheduling...' : 'Schedule Task'}
+            {scheduling ? "Scheduling..." : "Schedule Task"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Event Click Dialog */}
       {eventClickInfo && (
-        <Dialog open={openEventDialog} onClose={handleCloseEventDialog} maxWidth="sm" fullWidth>
+        <Dialog
+          open={openEventDialog}
+          onClose={handleCloseEventDialog}
+          maxWidth="sm"
+          fullWidth
+        >
           <DialogTitle>{eventClickInfo.title}</DialogTitle>
           <DialogContent>
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                {eventClickInfo.extendedProps.description || 'No description'}
+                {eventClickInfo.extendedProps.description || "No description"}
               </Typography>
-              
+
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Start Time</Typography>
                   <Typography variant="body2">
-                    {moment(eventClickInfo.start).format('MMM DD, YYYY [at] h:mm A')}
+                    {moment(eventClickInfo.start).format(
+                      "MMM DD, YYYY [at] h:mm A"
+                    )}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">End Time</Typography>
                   <Typography variant="body2">
-                    {moment(eventClickInfo.end).format('MMM DD, YYYY [at] h:mm A')}
+                    {moment(eventClickInfo.end).format(
+                      "MMM DD, YYYY [at] h:mm A"
+                    )}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -436,12 +560,16 @@ const Schedule = () => {
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Priority</Typography>
-                  <Chip 
-                    label={getPriorityLabel(eventClickInfo.extendedProps.priority)} 
-                    size="small" 
-                    sx={{ 
-                      backgroundColor: getPriorityColor(eventClickInfo.extendedProps.priority),
-                      color: 'white'
+                  <Chip
+                    label={getPriorityLabel(
+                      eventClickInfo.extendedProps.priority
+                    )}
+                    size="small"
+                    sx={{
+                      backgroundColor: getPriorityColor(
+                        eventClickInfo.extendedProps.priority
+                      ),
+                      color: "white",
                     }}
                   />
                 </Grid>
@@ -449,13 +577,11 @@ const Schedule = () => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseEventDialog}>
-              Close
-            </Button>
-            <Button 
-              component={RouterLink} 
+            <Button onClick={handleCloseEventDialog}>Close</Button>
+            <Button
+              component={RouterLink}
               to={`/tasks/${eventClickInfo.id}`}
-              variant="contained" 
+              variant="contained"
               color="primary"
               onClick={handleCloseEventDialog}
             >
@@ -468,4 +594,4 @@ const Schedule = () => {
   );
 };
 
-export default Schedule; 
+export default Schedule;

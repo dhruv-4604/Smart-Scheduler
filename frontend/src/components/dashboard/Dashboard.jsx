@@ -27,15 +27,15 @@ import moment from 'moment';
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
   const { tasks, scheduledTasks, loading: tasksLoading, error: tasksError, fetchTasks } = useContext(TaskContext);
-  const { budgets, loading: budgetsLoading, error: budgetsError, fetchBudgets } = useContext(BudgetContext);
+  const { budgets, loading: budgetsLoading, error: budgetsError } = useContext(BudgetContext);
   const [upcomingTasks, setUpcomingTasks] = useState([]);
   const [recentBudgets, setRecentBudgets] = useState([]);
 
   // Fetch tasks and budgets on component mount
   useEffect(() => {
     fetchTasks();
-    fetchBudgets();
-  }, [fetchTasks, fetchBudgets]);
+    // fetchBudgets();
+  }, [fetchTasks]);
 
   // Filter upcoming tasks and sort by deadline
   useEffect(() => {
