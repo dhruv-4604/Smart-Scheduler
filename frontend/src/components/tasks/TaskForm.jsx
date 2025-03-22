@@ -1,121 +1,154 @@
-import { useState, useEffect, useContext } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Typography,
-  Paper,
   TextField,
   Button,
+  Typography,
+  Paper,
   Grid,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Alert,
-  CircularProgress,
   FormHelperText,
+  Alert,
   Snackbar,
   IconButton,
   InputAdornment,
-} from "@mui/material";
+  Chip,
+  Stack,
+  CircularProgress
+} from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import {
-  Save as SaveIcon,
+  Add as AddIcon,
   ArrowBack as ArrowBackIcon,
-  Event as EventIcon,
-  AccessTime as AccessTimeIcon,
-  Clear as ClearIcon,
-} from "@mui/icons-material";
-import { TaskContext } from "../../context/TaskContext";
-import { DateTimePicker } from "@mui/x-date-pickers";
-import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import moment from "moment";
+  Delete as DeleteIcon
+} from '@mui/icons-material';
+import { TaskContext } from '../../context/TaskContext';
+import moment from 'moment';
 
 const TaskForm = () => {
-  const { createTask, updateTask, getTask, loading, error, clearError } =
-    useContext(TaskContext);
-  const navigate = useNavigate();
   const { id } = useParams();
-  const isEditMode = !!id;
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    deadline: moment().add(1, "day"),
+  const navigate = useNavigate();
+  const { getTask, createTask, updateTask, loading, error } = useContext(TaskContext);
+  
+  const initialFormState = {
+    title: '',
+    description: '',
+    priority: 3,
+    deadline: moment().add(1, 'day').startOf('day'),
     estimatedDuration: 60,
-    priority: 2,
-    status: "pending",
-  });
-
+    status: 'pending',
+    tags: []
+  };
+  
+  const [formData, setFormData] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
-  // Fetch task data if in edit mode
+  const [tag, setTag] = useState('');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Load task data if in edit mode
   useEffect(() => {
-    if (isEditMode) {
-      const fetchTaskData = async () => {
-        const task = await getTask(id);
-        if (task) {
-          setFormData({
-            title: task.title,
-            description: task.description || "",
-            deadline: moment(task.deadline),
-            estimatedDuration: task.estimatedDuration,
-            priority: task.priority,
-            status: task.status,
-          });
+    const fetchTask = async () => {
+      if (id) {
+        console.log('Fetching task data for editing. Task ID:', id);
+        try {
+          const taskData = await getTask(id);
+          if (taskData) {
+            console.log('Task data loaded:', taskData);
+            setIsEditMode(true);
+            
+            // Format deadline for date picker
+            const formattedTask = {
+              ...taskData,
+              deadline: taskData.deadline ? moment(taskData.deadline) : null
+            };
+            
+            setFormData(formattedTask);
+          } else {
+            console.error('Task not found for editing');
+            setSnackbarMessage('Task not found. Creating a new task instead.');
+            setSnackbarOpen(true);
+          }
+        } catch (err) {
+          console.error('Error loading task for editing:', err);
+          setSnackbarMessage('Error loading task data. Please try again.');
+          setSnackbarOpen(true);
         }
-      };
+      }
+    };
 
-      fetchTaskData();
-    }
+    fetchTask();
+  }, [id, getTask]);
 
-    return () => clearError();
-  }, [id, isEditMode, getTask, clearError]);
-
-  // Handle form input changes
+  // Handle form field changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-
-    // Clear validation error when user types
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear validation error when field is changed
     if (formErrors[name]) {
-      setFormErrors({ ...formErrors, [name]: "" });
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  // Handle date change
+  // Handle deadline date change
   const handleDateChange = (date) => {
-    setFormData({ ...formData, deadline: date });
+    setFormData(prev => ({ ...prev, deadline: date }));
+    
+    // Clear validation error when field is changed
     if (formErrors.deadline) {
-      setFormErrors({ ...formErrors, deadline: "" });
+      setFormErrors(prev => ({ ...prev, deadline: '' }));
     }
   };
 
-  // Validate form
+  // Handle tag input change
+  const handleTagChange = (e) => {
+    setTag(e.target.value);
+  };
+
+  // Add tag to form data
+  const handleAddTag = () => {
+    if (tag.trim() && !formData.tags.includes(tag.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tag.trim()]
+      }));
+      setTag('');
+    }
+  };
+
+  // Remove tag from form data
+  const handleDeleteTag = (tagToDelete) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToDelete)
+    }));
+  };
+
+  // Validate form fields
   const validateForm = () => {
     const errors = {};
-
+    
     if (!formData.title.trim()) {
-      errors.title = "Title is required";
+      errors.title = 'Title is required';
     }
-
+    
     if (!formData.deadline) {
-      errors.deadline = "Deadline is required";
-    } else if (!moment(formData.deadline).isValid()) {
-      errors.deadline = "Invalid date";
+      errors.deadline = 'Deadline is required';
     }
-
-    if (!formData.estimatedDuration) {
-      errors.estimatedDuration = "Estimated duration is required";
-    } else if (
-      isNaN(formData.estimatedDuration) ||
-      formData.estimatedDuration <= 0
-    ) {
-      errors.estimatedDuration = "Duration must be a positive number";
+    
+    if (!formData.estimatedDuration || formData.estimatedDuration <= 0) {
+      errors.estimatedDuration = 'Estimated duration must be greater than 0';
     }
-
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -123,62 +156,79 @@ const TaskForm = () => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    
     if (!validateForm()) {
       return;
     }
-
-    setSaving(true);
-
+    
     try {
-      // Format data for API
+      setSubmitting(true);
+      
+      // Format data for submission
       const taskData = {
         ...formData,
-        deadline: formData.deadline.toISOString(),
+        deadline: formData.deadline ? formData.deadline.toDate() : null
       };
-
+      
+      console.log('Submitting task data:', taskData);
+      
+      let result;
       if (isEditMode) {
-        await updateTask(id, taskData);
-        setSuccessMessage("Task updated successfully");
+        result = await updateTask(id, taskData);
+        if (result) {
+          setSnackbarMessage('Task updated successfully');
+          setSnackbarOpen(true);
+          setTimeout(() => navigate(`/tasks/${result._id}`), 1000);
+        }
       } else {
-        await createTask(taskData);
-        setSuccessMessage("Task created successfully");
+        result = await createTask(taskData);
+        if (result) {
+          setSnackbarMessage('Task created successfully');
+          setSnackbarOpen(true);
+          setTimeout(() => navigate(`/tasks/${result._id}`), 1000);
+        }
       }
-
-      // Navigate after a short delay to show success message
-      setTimeout(() => navigate("/tasks"), 1500);
     } catch (err) {
-      console.error("Error saving task:", err);
+      console.error('Error saving task:', err);
+      setSnackbarMessage('Error saving task. Please try again.');
+      setSnackbarOpen(true);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  // Convert minutes to hours and minutes
+  // Format estimated duration
   const formatDuration = (minutes) => {
+    if (!minutes) return 'Not specified';
+    
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
+    
+    if (hours > 0) {
+      return `${hours} hour${hours !== 1 ? 's' : ''}${mins > 0 ? ` ${mins} minute${mins !== 1 ? 's' : ''}` : ''}`;
+    }
+    
+    return `${mins} minute${mins !== 1 ? 's' : ''}`;
   };
 
   return (
     <LocalizationProvider dateAdapter={AdapterMoment}>
       <Box>
-        <Box sx={{ mb: 4, display: "flex", alignItems: "center" }}>
-          <IconButton onClick={() => navigate("/tasks")} sx={{ mr: 2 }}>
+        <Box sx={{ mb: 4, display: 'flex', alignItems: 'center' }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h4" component="h1">
-            {isEditMode ? "Edit Task" : "Create New Task"}
+            {isEditMode ? 'Edit Task' : 'Create New Task'}
           </Typography>
         </Box>
-
+        
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
-
+        
         <Paper elevation={3} sx={{ p: 4 }}>
           <form onSubmit={handleSubmit}>
             <Grid container spacing={3}>
@@ -191,50 +241,30 @@ const TaskForm = () => {
                   onChange={handleChange}
                   error={!!formErrors.title}
                   helperText={formErrors.title}
-                  disabled={loading || saving}
+                  disabled={loading || submitting}
                   required
                 />
               </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  multiline
-                  rows={4}
-                  disabled={loading || saving}
-                />
-              </Grid>
-
+              
               <Grid item xs={12} sm={6}>
-                <DateTimePicker
-                  label="Deadline"
-                  value={formData.deadline}
-                  onChange={handleDateChange}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      fullWidth
-                      error={!!formErrors.deadline}
-                      helperText={formErrors.deadline}
-                      required
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <EventIcon color="action" />
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                  )}
-                  disabled={loading || saving}
-                />
+                <LocalizationProvider dateAdapter={AdapterMoment}>
+                  <DateTimePicker
+                    label="Deadline"
+                    value={formData.deadline}
+                    onChange={handleDateChange}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!formErrors.deadline,
+                        helperText: formErrors.deadline,
+                        required: true
+                      }
+                    }}
+                    disabled={loading || submitting}
+                  />
+                </LocalizationProvider>
               </Grid>
-
+              
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -244,73 +274,117 @@ const TaskForm = () => {
                   value={formData.estimatedDuration}
                   onChange={handleChange}
                   error={!!formErrors.estimatedDuration}
-                  helperText={
-                    formErrors.estimatedDuration ||
-                    `Approx. ${formatDuration(formData.estimatedDuration)}`
-                  }
+                  helperText={formErrors.estimatedDuration || `Approximately ${formatDuration(formData.estimatedDuration)}`}
+                  disabled={loading || submitting}
                   InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <AccessTimeIcon color="action" />
-                      </InputAdornment>
-                    ),
+                    endAdornment: <InputAdornment position="end">mins</InputAdornment>
                   }}
-                  disabled={loading || saving}
                   required
                 />
               </Grid>
-
+              
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!formErrors.priority}>
-                  <InputLabel>Priority</InputLabel>
+                <FormControl fullWidth disabled={loading || submitting}>
+                  <InputLabel id="priority-label">Priority</InputLabel>
                   <Select
+                    labelId="priority-label"
                     name="priority"
                     value={formData.priority}
                     onChange={handleChange}
                     label="Priority"
-                    disabled={loading || saving}
                   >
-                    <MenuItem value={1}>High</MenuItem>
-                    <MenuItem value={2}>Medium</MenuItem>
-                    <MenuItem value={3}>Low</MenuItem>
+                    <MenuItem value={1}>High Priority</MenuItem>
+                    <MenuItem value={2}>Medium Priority</MenuItem>
+                    <MenuItem value={3}>Low Priority</MenuItem>
                   </Select>
-                  {formErrors.priority && (
-                    <FormHelperText>{formErrors.priority}</FormHelperText>
-                  )}
                 </FormControl>
               </Grid>
-
+              
               {isEditMode && (
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!formErrors.status}>
-                    <InputLabel>Status</InputLabel>
+                  <FormControl fullWidth disabled={loading || submitting}>
+                    <InputLabel id="status-label">Status</InputLabel>
                     <Select
+                      labelId="status-label"
                       name="status"
                       value={formData.status}
                       onChange={handleChange}
                       label="Status"
-                      disabled={loading || saving}
                     >
                       <MenuItem value="pending">Pending</MenuItem>
                       <MenuItem value="in-progress">In Progress</MenuItem>
                       <MenuItem value="completed">Completed</MenuItem>
                     </Select>
-                    {formErrors.status && (
-                      <FormHelperText>{formErrors.status}</FormHelperText>
-                    )}
                   </FormControl>
                 </Grid>
               )}
-
+              
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  multiline
+                  rows={4}
+                  value={formData.description}
+                  onChange={handleChange}
+                  disabled={loading || submitting}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="subtitle1">Tags</Typography>
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={8}>
+                    <TextField
+                      fullWidth
+                      label="Add a tag"
+                      value={tag}
+                      onChange={handleTagChange}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTag();
+                        }
+                      }}
+                      disabled={loading || submitting}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddTag}
+                      fullWidth
+                      disabled={loading || submitting || !tag.trim()}
+                    >
+                      Add Tag
+                    </Button>
+                  </Grid>
+                </Grid>
+                <Box sx={{ mt: 2 }}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                    {formData.tags.map((tag, index) => (
+                      <Chip
+                        key={index}
+                        label={tag}
+                        onDelete={() => handleDeleteTag(tag)}
+                        disabled={loading || submitting}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
+              
               <Grid item xs={12} sx={{ mt: 2 }}>
-                <Box
-                  sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}
-                >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Button
                     variant="outlined"
-                    onClick={() => navigate("/tasks")}
-                    disabled={saving}
-                    startIcon={<ClearIcon />}
+                    startIcon={<ArrowBackIcon />}
+                    onClick={() => navigate(-1)}
+                    disabled={loading || submitting}
                   >
                     Cancel
                   </Button>
@@ -318,28 +392,26 @@ const TaskForm = () => {
                     type="submit"
                     variant="contained"
                     color="primary"
-                    disabled={loading || saving}
-                    startIcon={
-                      saving ? <CircularProgress size={20} /> : <SaveIcon />
-                    }
+                    size="large"
+                    disabled={loading || submitting}
+                    startIcon={submitting && <CircularProgress size={20} />}
                   >
-                    {saving
-                      ? "Saving..."
-                      : isEditMode
-                      ? "Update Task"
-                      : "Create Task"}
+                    {submitting 
+                      ? 'Saving...' 
+                      : isEditMode ? 'Update Task' : 'Create Task'
+                    }
                   </Button>
                 </Box>
               </Grid>
             </Grid>
           </form>
         </Paper>
-
+        
         <Snackbar
-          open={!!successMessage}
-          autoHideDuration={3000}
-          onClose={() => setSuccessMessage("")}
-          message={successMessage}
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={() => setSnackbarOpen(false)}
+          message={snackbarMessage}
         />
       </Box>
     </LocalizationProvider>

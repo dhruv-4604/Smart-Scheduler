@@ -32,6 +32,9 @@ const TaskSchema = new mongoose.Schema({
     enum: ['pending', 'in-progress', 'completed'],
     default: 'pending'
   },
+  scheduledTime: {
+    type: Date
+  },
   scheduledStart: {
     type: Date
   },

@@ -7,19 +7,37 @@ const auth = require('../middleware/auth');
 // Apply auth middleware to all routes
 router.use(auth);
 
-// @route   GET /api/tasks
-// @desc    Get all tasks
-// @access  Private
+// Test route - no auth needed for testing
+router.get('/test', (req, res) => {
+  res.json({ message: 'Task API is working' });
+});
+
+// Get all tasks for logged in user
 router.get('/', taskController.getTasks);
 
-// @route   GET /api/tasks/:id
-// @desc    Get task by ID
-// @access  Private
-router.get('/:id', taskController.getTaskById);
+// Get task statistics
+router.get('/stats', taskController.getTaskStats);
 
-// @route   POST /api/tasks
-// @desc    Create a task
-// @access  Private
+// Get task data integrity diagnostics
+router.get('/diagnostics', taskController.getTaskDiagnostics);
+
+// Get all scheduled tasks
+router.get('/scheduled', taskController.getScheduledTasks);
+
+// Get tasks scheduled for today
+router.get('/scheduled/today', taskController.getTodayScheduledTasks);
+
+// Add an alias for the same endpoint without "scheduled/" prefix
+// For compatibility with dashboard component
+router.get('/today', taskController.getTodayScheduledTasks);
+
+// Find available time slots for scheduling
+router.get('/available-slots', taskController.getAvailableTimeSlots);
+
+// Schedule tasks using algorithm
+router.post('/schedule', taskController.scheduleTasks);
+
+// Create a task
 router.post(
   '/',
   [
@@ -30,9 +48,24 @@ router.post(
   taskController.createTask
 );
 
-// @route   PUT /api/tasks/:id
-// @desc    Update a task
-// @access  Private
+// Unschedule a task
+router.put('/:id/unschedule', taskController.unscheduleTask);
+
+// Schedule a specific task
+router.put('/:id/schedule', [
+  check('scheduledTime', 'Scheduled time is required').not().isEmpty()
+], taskController.scheduleTask);
+
+// Update task status
+router.patch('/:id/status', [
+  check('status', 'Status is required').not().isEmpty(),
+  check('status', 'Status must be valid').isIn(['pending', 'in-progress', 'completed'])
+], taskController.updateTaskStatus);
+
+// Get task by ID
+router.get('/:id', taskController.getTaskById);
+
+// Update a task
 router.put(
   '/:id',
   [
@@ -45,14 +78,7 @@ router.put(
   taskController.updateTask
 );
 
-// @route   DELETE /api/tasks/:id
-// @desc    Delete a task
-// @access  Private
+// Delete a task
 router.delete('/:id', taskController.deleteTask);
-
-// @route   POST /api/tasks/schedule
-// @desc    Schedule tasks using algorithm
-// @access  Private
-router.post('/schedule', taskController.scheduleTasks);
 
 module.exports = router; 
